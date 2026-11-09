@@ -1,0 +1,32 @@
+// Example Jenkins stage. Adapt the final stage to your own downstream platform.
+// Needs: Snyk CLI 1.1307.0 or later on the agent, SNYK_TOKEN, python3, git.
+pipeline {
+  agent any
+  environment {
+    SNYK_TOKEN = credentials('snyk-token')          // service account token for your Snyk tenant
+    SNYK_API   = 'https://<your-tenant-api-url>'    // single tenant API URL
+    SCA_PREP   = 'npm ci --ignore-scripts'          // the build's own dependency install (omit to skip open source)
+    ENRICH     = 'local'                            // local | github | none (none = the downstream platform adds the snippets)
+  }
+  stages {
+    stage('Checkout') {
+      steps { checkout scm }                        // clean checkout of the branch under test, nothing modified after this
+    }
+    stage('Snyk scan') {
+      steps {
+        sh '''
+          OUT="snyk-out/$(git rev-parse HEAD)"
+          ./snyk_branch_scan.sh "$WORKSPACE" "$REPO_SLUG" "$OUT"   # exit 0 = done, 2 = guard failed, 3 = scan failed
+        '''
+        archiveArtifacts artifacts: 'snyk-out/**', allowEmptyArchive: true
+      }
+    }
+    stage('Send results') {
+      steps {
+        // Send manifest.json (repo, branch, commit_id, build_id) with enriched.json,
+        // or with code.sarif / iac.json / sca.json when ENRICH=none.
+        sh 'echo "replace with the call to your platform"'
+      }
+    }
+  }
+}
